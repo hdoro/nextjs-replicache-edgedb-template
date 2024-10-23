@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/typescript-config/react-library.json",
+  "compilerOptions": {
+    "lib": ["ES2015"],
+    "outDir": "./dist",
+    "types": ["node"],
+    // edgeql/hydrate.ts currently has a TS bug; prevent it from breaking the build
+    "noEmitOnError": false
+  },
+  "include": ["."],
+  "exclude": ["node_modules", "dist"]
+}

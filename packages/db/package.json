@@ -1,0 +1,32 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "exports": {
+    "./schema": "./src/generated/interfaces.ts",
+    "./client": "./src/edgedb.client.ts",
+    "./edgeql": "./src/generated/edgeql.ts",
+    "./mutations": "./src/edgedb.mutations.ts",
+    "./queries": "./src/edgedb.queries.ts"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "pnpm run generate",
+    "dev": "pnpm run generate",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "generate:interfaces": "pnpm exec generate interfaces --file src/generated/interfaces.ts",
+    "generate:client": "pnpm exec generate edgeql-js --out src/generated/edgeql --future-polymorphism-as-discriminated-unions --future-strict-type-names --target ts",
+    "generate": "pnpm run generate:interfaces && pnpm run generate:client"
+  },
+  "dependencies": {
+    "edgedb": "^1.5.12"
+  },
+  "devDependencies": {
+    "@edgedb/generate": "0.6.0-canary.20241021T091125",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/tailwind-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3"
+  }
+}
