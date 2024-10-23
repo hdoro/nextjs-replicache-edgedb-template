@@ -1,6 +1,14 @@
 import { CustomPushRequest } from '@repo/lib'
 import { type NextRequest } from 'next/server'
 import { process_push } from './process-push'
+import { corsHeaders } from '../pull/route'
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders,
+  })
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -11,5 +19,6 @@ export async function POST(request: NextRequest) {
 
   return new Response(null, {
     status: 200,
+    headers: corsHeaders,
   })
 }

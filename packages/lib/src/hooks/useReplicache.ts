@@ -1,12 +1,16 @@
-'use client'
-
 import { type M, MUTATORS_CLIENT } from '@repo/lib/mutators/client'
 import Cookies from 'js-cookie'
 import { nanoid } from 'nanoid'
 import { useEffect, useState } from 'react'
 import { Replicache, TEST_LICENSE_KEY } from 'replicache'
 
-export default function useReplicache() {
+export function useReplicache({
+  baseURL,
+  licenseKey,
+}: {
+  baseURL: string
+  licenseKey?: string
+}) {
   const [rep, setRep] = useState<Replicache<M> | null>(null)
 
   useEffect(() => {
@@ -18,10 +22,9 @@ export default function useReplicache() {
 
     const replicache = new Replicache({
       name: userID,
-      licenseKey:
-        process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY || TEST_LICENSE_KEY,
-      pushURL: '/replicache/push',
-      pullURL: '/replicache/pull',
+      licenseKey: licenseKey || TEST_LICENSE_KEY,
+      pushURL: `${baseURL}/replicache/push`,
+      pullURL: `${baseURL}/replicache/pull`,
       mutators: MUTATORS_CLIENT,
       schemaVersion: '1.0',
 
@@ -29,7 +32,7 @@ export default function useReplicache() {
       // requestOptions: {
       //   minDelayMs: 5000, // long time during dev to allow for easier debugging
       // },
-      // logLevel: 'debug',
+      logLevel: 'debug',
     })
 
     setRep(replicache)

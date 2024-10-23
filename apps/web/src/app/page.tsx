@@ -2,10 +2,13 @@
 
 import { EdgeDB_Vercel } from '@repo/ui'
 import { TodoList } from '@repo/ui'
-import useReplicache from './useReplicache'
+import { useReplicache } from '@repo/lib/hooks'
 
 const HomePage = () => {
-  const rep = useReplicache()
+  const rep = useReplicache({
+    baseURL: '',
+    licenseKey: process.env.NEXT_PUBLIC_REPLICACHE_LICENSE_KEY,
+  })
 
   if (!rep) {
     return <div>Loading...</div>
