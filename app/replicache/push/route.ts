@@ -1,15 +1,24 @@
 import { CustomPushRequest } from "@/lib/replicache.types";
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { process_push } from "./process-push";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  console.log(`Processing push`, CustomPushRequest.parse(body));
+  console.log(`[/replicache/push] processing request`, body);
 
   // @TODO error handling
-  await process_push(CustomPushRequest.parse(body));
+  const parsedBody = CustomPushRequest.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "InvalidRequest" }, { status: 400 });
+  }
 
-  return new Response(null, {
-    status: 200,
-  });
+  try {
+    await process_push(parsedBody.data);
+
+    return new Response(null, {
+      status: 200,
+    });
+  } catch (_error) {
+    return NextResponse.json({ error: "InternalError" }, { status: 500 });
+  }
 }
