@@ -101,20 +101,22 @@ export const create_client_group_mutation = e.params(
   (params) =>
     e.insert(e.ReplicacheClientGroup, {
       client_group_id: params.client_group_id,
-      last_pulled_at: e.datetime_of_transaction(),
     }),
 )
 
 export const update_client_group_mutation = e.params(
   {
     client_group_id: e.str,
+    cvr_version: e.int64,
+    client_view_record: e.json,
   },
   (params) =>
     e.update(e.ReplicacheClientGroup, (group) => ({
       filter_single: e.op(group.client_group_id, '=', params.client_group_id),
 
       set: {
-        last_pulled_at: e.datetime_of_transaction(),
+        client_view_record: params.client_view_record,
+        cvr_version: params.cvr_version,
       },
     })),
 )

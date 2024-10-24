@@ -7,6 +7,7 @@ import { fetch_client_group_query } from '@/lib/edgedb.queries'
 import { Mutation } from '@/lib/mutation.types'
 import { MUTATORS_DB } from '@/lib/mutators.db'
 import {
+  DEFAULT_LAST_MUTATION_ID,
   type ClientPushInfo,
   type CustomPushRequest,
 } from '@/lib/replicache.types'
@@ -29,9 +30,9 @@ export async function process_push({
       client_group_id,
     })
 
-    /** #2 create it in the DB if it doesn't yet exist */
+    /** #2 create the group in the DB if it doesn't yet exist */
     if (!client_group.in_db) {
-      console.log('[process-push] creating client group', {
+      console.debug('[process-push] creating client group', {
         client_group_id: client_group.client_group_id,
       })
       await create_client_group_mutation.run(tx, {
@@ -45,22 +46,13 @@ export async function process_push({
       client_group,
     })
 
-    /** #4 optimistically update the clients' `last_mutation_id`s in the db to the latest corresponding mutation ids in the request
-     * - Clients not yet in the DB will be created
-     * - If the transaction fails, `last_mutation_id`s will be rolled back to their previous values
-     */
-    await modify_clients_mutation.run(tx, {
-      client_group_id,
-      ...clients_with_last_mutation_ids,
-    })
-
     const all_clients = [
       ...clients_with_last_mutation_ids.new,
       ...clients_with_last_mutation_ids.in_db,
     ]
 
     /** #5 process & perform mutations */
-    for (const rawMutation of mutations) {
+    for (const [index, rawMutation] of mutations.entries()) {
       const client = all_clients.find(
         (c) => c.client_id === rawMutation.clientID,
       )
@@ -68,39 +60,68 @@ export async function process_push({
 
       const parsedMutation = Mutation.safeParse(rawMutation)
 
-      // Even if the mutation is invalid, we treat it as completed
-      // to avoid the client from retrying it indefinitely.
-      // See: https://doc.replicache.dev/reference/server-push#error-handling
+      /** #5.1 Skip invalid mutations
+       * Even if the mutation is invalid, we treat it as completed
+       * to avoid the client from retrying it indefinitely.
+       * See: https://doc.replicache.dev/reference/server-push#error-handling
+       */
       if (!parsedMutation.success) {
-        console.info('[process-push] skipping mutation already processed', {
-          rawMutation,
-          error: JSON.stringify(parsedMutation.error.issues, null, 2),
-        })
+        console.debug(
+          `[process-push] mutation ${rawMutation.id} has incorrect schema`,
+          {
+            rawMutation,
+            error: JSON.stringify(parsedMutation.error.issues, null, 2),
+          },
+        )
         return
       }
 
       const mutation = parsedMutation.data
 
-      const last_mutation_id = client.last_mutation_id_in_db ?? -1
+      const last_mutation_id_in_db = client.last_mutation_id_in_db ?? -1
+      // How many mutations from the same client have been processed before this one
+      const mutation_index_in_same_client = mutations
+        .slice(0, index)
+        .filter((m) => m.clientID === client.client_id).length
+      const last_mutation_id_for_mutation =
+        last_mutation_id_in_db + mutation_index_in_same_client
+      const next_mutation_id = last_mutation_id_for_mutation + 1
 
-      // Skip mutation if it has already been processed
-      if (mutation.id <= last_mutation_id) {
-        console.log('[process-push] skipping mutation', {
-          mutationId: mutation.id,
-          last_mutation_id: last_mutation_id,
-        })
-        return
+      /** #5.2 Skip already processed mutations */
+      if (mutation.id < next_mutation_id) {
+        console.debug(
+          `[process-push] mutation ${mutation.id} has already been processed - skipping`,
+          {
+            mutation,
+            client,
+            last_mutation_id_in_db,
+            next_mutation_id,
+            index,
+            mutation_index_in_same_client,
+          },
+        )
+        continue
+      }
+
+      /** #5.3 Rollback and error if from future */
+      if (mutation.id > next_mutation_id) {
+        throw new Error(
+          `[process-push] mutation ${mutation.id} is from the future - aborting. Next mutation id is ${next_mutation_id}`,
+        )
       }
 
       const handler = MUTATORS_DB[mutation.name]
+      /** #5.4 If no handler for the mutation, rollback and error
+       * It's an implementation error: a known schema (it's passed the zod parsing), but the handler is missing.
+       * Better to crash and have the developer fix it, than to silently skip the mutation.
+       */
       if (!handler) {
-        console.log(
+        throw new Error(
           `[process-push] skipping unknown mutation "${mutation.name}". Add a handler for it in MUTATION_HANDLERS if you want to process it.`,
         )
-        return
       }
 
-      console.log(
+      console.debug(
         `[process-push] performing "${mutation.name}" mutation`,
         mutation,
       )
@@ -112,6 +133,15 @@ export async function process_push({
         mutation,
       })
     }
+
+    /** #6 update the clients' `last_mutation_id`s in the db to the latest corresponding mutation ids in the request
+     * - Clients not yet in the DB will be created
+     * - If the transaction fails, `last_mutation_id`s will be rolled back to their previous values
+     */
+    await modify_clients_mutation.run(tx, {
+      client_group_id,
+      ...clients_with_last_mutation_ids,
+    })
   })
 
   return {
@@ -141,11 +171,11 @@ function parse_clients({
         (c) => c.client_id === mutation.clientID,
       )
       if (!existing) {
+        // For clients that don't yet exist in the DB, create a default
         clients_with_ids.new.push({
           client_id: mutation.clientID,
           last_mutation_id_in_request: mutation.id,
-          // For clients that don't yet exist in the DB, last_mutation_id starts at -1 to indicate that all of its mutations should be applied
-          last_mutation_id_in_db: -1,
+          last_mutation_id_in_db: DEFAULT_LAST_MUTATION_ID,
         })
       } else {
         existing.last_mutation_id_in_request = Math.max(

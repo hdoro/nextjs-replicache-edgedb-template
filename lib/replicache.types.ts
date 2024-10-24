@@ -7,8 +7,17 @@ export type ClientPushInfo = {
   last_mutation_id_in_request: MutationV1['id']
 }
 
+const ReplicacheCookie = z.object({
+  /**
+   * The version of the CVR that was used to generate the patch
+   */
+  order: z.number(),
+})
+
+export type ReplicacheCookie = z.infer<typeof ReplicacheCookie>
+
 export const CustomPullRequest = z.object({
-  cookie: z.union([z.number(), z.null()]),
+  cookie: z.nullable(ReplicacheCookie),
   profileID: z.string(),
   clientGroupID: z.string(),
   pullVersion: z.literal(1),
@@ -48,3 +57,18 @@ export function processRequestId(request: Request) {
 
   return { clientID, sessionID, requestCount }
 }
+
+const RowVersion = z.number().brand('RowVersion')
+export type RowVersion = z.infer<typeof RowVersion>
+
+const ReplicacheId = z.string().brand('ReplicacheId')
+export type ReplicacheId = z.infer<typeof ReplicacheId>
+
+/**
+ * "A Client View Record (CVR) is a minimal representation of a Client View snapshot.
+ * In other words, it captures what data a Client Group had at a particular moment in time."
+ * @docs https://doc.replicache.dev/strategies/row-version#client-view-records */
+export const ClientViewRecord = z.record(ReplicacheId, RowVersion)
+export type ClientViewRecord = z.infer<typeof ClientViewRecord>
+
+export const DEFAULT_LAST_MUTATION_ID = 0

@@ -4,21 +4,38 @@ module default {
     select ReplicacheClientGroup
     filter .client_group_id = global current_group_id
   );
+
+  abstract type WithTimestamps {
+    required created_at: datetime {
+      default := datetime_of_transaction();
+      readonly := true;
+    };
+    updated_at: datetime {
+      rewrite insert, update using (datetime_of_statement());
+    };
+  }
   
-  type ReplicacheClientGroup {
+  type ReplicacheClientGroup extending WithTimestamps {
     required client_group_id: str {
       constraint exclusive;
     };
-    required last_pulled_at: datetime {
-      default := datetime_of_transaction();
+
+
+    # ------------------
+    # CLIENT VIEW RECORD - https://doc.replicache.dev/strategies/row-version#client-view-records
+    required client_view_record: json {
+      annotation description := 'Captures what data the Client Group has access to, as of last pull';
+
+      # { [replicache_id (str)]: replicache_version (int64) }
+      default := to_json('{}');
     };
 
-    multi clients := .<client_group[is ReplicacheClient];
-    # last_mutation_ids - map of client_id to mutation_id, based on clients
-    # last_mutation_ids := .clients
-    multi todos := .<client_group[is Todo];
-
-    
+    # Replicache requires that cookies are ordered within a client group.
+    # To establish this order we simply keep a counter.
+    required cvr_version: int64 {
+      default := 0;
+    };
+    # ------------------
 
     # @TODO: figure out access policy limiting inserting new clients
     # ERROR: ⨯ CardinalityViolationError: required link 'client_group' of object type 'default::ReplicacheClient' is hidden by access policy
@@ -28,10 +45,10 @@ module default {
     #   global current_group_id ?= .client_group_id
     # );
 
-    index on ((.client_group_id, .last_pulled_at));
+    index on ((.client_group_id));
   }
 
-  type ReplicacheClient {
+  type ReplicacheClient extending WithTimestamps {
     required client_id: str {
       constraint exclusive;
     };
@@ -47,42 +64,18 @@ module default {
     );
   }
 
-  abstract type WithTimestamps {
-    required created_at: datetime {
-      default := datetime_of_transaction();
-      readonly := true;
-    };
-    updated_at: datetime {
-      rewrite insert, update using (datetime_of_statement());
-    };
-  }
-
-  # Tombstone to sync deleted objects to Replicache in the `/pull` endpoint.
-  type DeletedReplicacheObject {
-    required replicache_id: str;
-    required deleted_at: datetime {
-      default := datetime_of_transaction();
-      readonly := true;
-    };
-
-    index on ((.replicache_id, .deleted_at));
-  }
-
   abstract type ReplicacheObject extending WithTimestamps {
     required replicache_id: str {
       constraint exclusive;
 
       annotation description := 'The key/id of the object in the Replicache client, generated in the front-end with nanoid via the `generate_replicache_id` function.';
     };
+    required replicache_version: int64 {
+      default := 1;
+      rewrite update using (.replicache_version + 1);
+    };
 
-    # Allows detecting which entities were deleted, so we can update the Replicache state in the /pull endpoint.
-    trigger register_deletion after delete for each do (
-      insert DeletedReplicacheObject {
-        replicache_id := __old__.replicache_id,
-      }
-    );
-
-    index on ((.replicache_id, .updated_at));
+    index on ((.replicache_id, .replicache_version));
   }
 
   type Todo extending ReplicacheObject {

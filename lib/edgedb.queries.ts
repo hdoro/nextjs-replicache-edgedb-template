@@ -9,27 +9,25 @@ function select_client_group(
     scalarTypeWithConstructor<$str, never>,
     false
   >,
+  include_cvr = false,
 ) {
   const stored_client_group = e.select(e.ReplicacheClientGroup, (rg) => ({
     filter_single: e.op(rg.client_group_id, '=', client_group_id),
 
     client_group_id: true,
-    last_pulled_at: true,
+    client_view_record: include_cvr,
+    cvr_version: true,
     in_db: e.bool(true),
   }))
 
   // In case the client group doesn't exist, create a default with current timestamp and no clients
-  const client_group = e.select({
+  const base_select = {
     client_group_id: e.op(
       stored_client_group.client_group_id,
       '??',
       client_group_id,
     ),
-    last_pulled_at: e.op(
-      stored_client_group.last_pulled_at,
-      '??',
-      e.datetime_of_transaction(),
-    ),
+    cvr_version: e.op(stored_client_group.cvr_version, '??', e.int64(0)),
     clients: e.select(e.ReplicacheClient, (c) => ({
       filter: e.op(c.client_group, '=', stored_client_group),
 
@@ -37,6 +35,18 @@ function select_client_group(
       last_mutation_id: true,
     })),
     in_db: e.op(stored_client_group.in_db, '??', e.bool(false)),
+  } as const
+
+  const cvr_select = {
+    client_view_record: e.op(
+      stored_client_group.client_view_record,
+      '??',
+      e.json({}),
+    ),
+  } as const
+  const client_group = e.select({
+    ...base_select,
+    ...(include_cvr ? cvr_select : ({} as typeof cvr_select)),
   })
 
   return client_group
@@ -47,48 +57,44 @@ export const fetch_client_group_query = e.params(
     client_group_id: e.str,
   },
   (params) => {
-    return select_client_group(params.client_group_id)
+    return select_client_group(params.client_group_id, false)
   },
 )
 
-export const data_since_last_pull_query = e.params(
+export const pull_metadata_query = e.params(
   {
     client_group_id: e.str,
   },
   (params) => {
-    const client_group = select_client_group(params.client_group_id)
+    const client_group = select_client_group(params.client_group_id, true)
 
-    const entries_deleted_since_last_pull = e.select(
-      e.DeletedReplicacheObject,
-      (de) => ({
-        filter: e.op(de.deleted_at, '>', client_group.last_pulled_at),
-
-        replicache_id: true,
-      }),
-    )
-
-    const entries_updated_since_last_pull = e.select(
-      e.ReplicacheObject,
-      (t) => ({
-        filter: e.op(t.updated_at, '>', client_group.last_pulled_at),
-
-        replicache_id: true,
-        created_at: true,
-        updated_at: true,
-
-        // For now, simply returning all properties of Todos
-        ...e.is(e.Todo, {
-          complete: true,
-          content: true,
-        }),
-      }),
-    )
+    // Due to access policies in EdgeDB, only those objects that are visible to the current user are returned
+    const replicache_objects_metadata = e.select(e.ReplicacheObject, () => ({
+      replicache_id: true,
+      replicache_version: true,
+    }))
 
     return e.select({
       client_group,
-      entries_deleted_since_last_pull,
-      entries_updated_since_last_pull,
-      transaction_start_time: e.datetime_of_transaction(),
+      replicache_objects_metadata,
     })
+  },
+)
+
+export const pull_objects_query = e.params(
+  {
+    replicache_ids: e.array(e.str),
+  },
+  (params) => {
+    return e.select(e.ReplicacheObject, (o) => ({
+      filter: e.op(
+        o.replicache_id,
+        'in',
+        e.array_unpack(params.replicache_ids),
+      ),
+
+      // For now just fetching all fields for TODOs
+      // ...e.is(e.Todo, { ...e.Todo. }),
+    }))
   },
 )
