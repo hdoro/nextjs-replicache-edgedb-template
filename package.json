@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "format": "prettier --write .",
     "generate:interfaces": "pnpm exec generate interfaces",
     "generate:client": "pnpm exec generate edgeql-js --out dbschema/edgeql --future-polymorphism-as-discriminated-unions --future-strict-type-names",
     "generate": "pnpm run generate:interfaces && pnpm run generate:client"

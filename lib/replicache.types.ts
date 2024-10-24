@@ -1,20 +1,20 @@
-import type { MutationV1 } from 'replicache'
-import { z } from 'zod'
+import type { MutationV1 } from "replicache";
+import { z } from "zod";
 
 export type ClientPushInfo = {
-  client_id: MutationV1['clientID']
-  last_mutation_id_in_db: MutationV1['id']
-  last_mutation_id_in_request: MutationV1['id']
-}
+  client_id: MutationV1["clientID"];
+  last_mutation_id_in_db: MutationV1["id"];
+  last_mutation_id_in_request: MutationV1["id"];
+};
 
 const ReplicacheCookie = z.object({
   /**
    * The version of the CVR that was used to generate the patch
    */
   order: z.number(),
-})
+});
 
-export type ReplicacheCookie = z.infer<typeof ReplicacheCookie>
+export type ReplicacheCookie = z.infer<typeof ReplicacheCookie>;
 
 export const CustomPullRequest = z.object({
   cookie: z.nullable(ReplicacheCookie),
@@ -22,18 +22,18 @@ export const CustomPullRequest = z.object({
   clientGroupID: z.string(),
   pullVersion: z.literal(1),
   schemaVersion: z.string(),
-})
+});
 
 export type ReplicacheClientGroup = {
-  client_group_id: string
-}
+  client_group_id: string;
+};
 
 export const BaseReplicacheMutation = z.object({
   clientID: z.string(),
   timestamp: z.number(),
   id: z.number(),
-})
-export type BaseReplicacheMutation = z.infer<typeof BaseReplicacheMutation>
+});
+export type BaseReplicacheMutation = z.infer<typeof BaseReplicacheMutation>;
 
 export const CustomPushRequest = z.object({
   profileID: z.string(),
@@ -44,7 +44,7 @@ export const CustomPushRequest = z.object({
    * un-filtered mutations - they get validated on a per-mutation basis via the `Mutation` type below
    */
   mutations: z.array(BaseReplicacheMutation.passthrough()),
-})
+});
 
 /**
  * Processes the `X-Replicache-RequestID` header to extract the clientID, sessionID, and request count.
@@ -53,23 +53,23 @@ export const CustomPushRequest = z.object({
  * @docs https://doc.replicache.dev/reference/server-pull#x-replicache-requestid
  */
 export function processRequestId(request: Request) {
-  const requestID = request.headers.get('X-Replicache-RequestID')
-  const [clientID, sessionID, requestCount] = requestID?.split('-') ?? []
+  const requestID = request.headers.get("X-Replicache-RequestID");
+  const [clientID, sessionID, requestCount] = requestID?.split("-") ?? [];
 
-  return { clientID, sessionID, requestCount }
+  return { clientID, sessionID, requestCount };
 }
 
-const RowVersion = z.number().brand('RowVersion')
-export type RowVersion = z.infer<typeof RowVersion>
+const RowVersion = z.number().brand("RowVersion");
+export type RowVersion = z.infer<typeof RowVersion>;
 
-const ReplicacheId = z.string().brand('ReplicacheId')
-export type ReplicacheId = z.infer<typeof ReplicacheId>
+const ReplicacheId = z.string().brand("ReplicacheId");
+export type ReplicacheId = z.infer<typeof ReplicacheId>;
 
 /**
  * "A Client View Record (CVR) is a minimal representation of a Client View snapshot.
  * In other words, it captures what data a Client Group had at a particular moment in time."
  * @docs https://doc.replicache.dev/strategies/row-version#client-view-records */
-export const ClientViewRecord = z.record(ReplicacheId, RowVersion)
-export type ClientViewRecord = z.infer<typeof ClientViewRecord>
+export const ClientViewRecord = z.record(ReplicacheId, RowVersion);
+export type ClientViewRecord = z.infer<typeof ClientViewRecord>;
 
-export const DEFAULT_LAST_MUTATION_ID = 0
+export const DEFAULT_LAST_MUTATION_ID = 0;

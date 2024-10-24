@@ -1,12 +1,12 @@
-import { client as edgedb_client } from '@/lib/edgedb'
+import { client as edgedb_client } from "@/lib/edgedb";
 import {
   create_todo_mutation,
   delete_todo_mutation,
   update_todo_mutation,
-} from '@/lib/edgedb.mutations'
-import { type fetch_client_and_group_query } from '@/lib/edgedb.queries'
-import { z } from 'zod'
-import type { Mutation } from './mutation.types'
+} from "@/lib/edgedb.mutations";
+import { type fetch_client_and_group_query } from "@/lib/edgedb.queries";
+import { z } from "zod";
+import type { Mutation } from "./mutation.types";
 
 /**
  * Mutators that are executed on the server to modify state in the database.
@@ -20,12 +20,12 @@ import type { Mutation } from './mutation.types'
  * See Replicache docs for more information: https://doc.replicache.dev/byob/remote-mutations
  */
 export const MUTATORS_DB: {
-  [MutationName in z.infer<typeof Mutation>['name']]: (
+  [MutationName in z.infer<typeof Mutation>["name"]]: (
     args: {
-      mutation: Extract<z.infer<typeof Mutation>, { name: MutationName }>
-      tx: Parameters<Parameters<typeof edgedb_client.transaction>[0]>[0]
+      mutation: Extract<z.infer<typeof Mutation>, { name: MutationName }>;
+      tx: Parameters<Parameters<typeof edgedb_client.transaction>[0]>[0];
     } & Awaited<ReturnType<typeof fetch_client_and_group_query.run>>,
-  ) => Promise<unknown> // result of the mutation is discarded
+  ) => Promise<unknown>; // result of the mutation is discarded
 } = {
   createTodo: ({ tx, client_group, mutation }) =>
     create_todo_mutation.run(tx, {
@@ -47,4 +47,4 @@ export const MUTATORS_DB: {
       complete: mutation.args.complete,
       content: mutation.args.content,
     }),
-}
+};

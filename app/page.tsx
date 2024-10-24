@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
-import { EdgeDB_Vercel } from '@/lib/components/Logo'
-import TodoList from '../lib/components/TodoList'
-import useReplicache from './useReplicache'
+import { EdgeDB_Vercel } from "@/lib/components/Logo";
+import TodoList from "../lib/components/TodoList";
+import useReplicache from "./useReplicache";
 
 const HomePage = () => {
-  const rep = useReplicache()
+  const rep = useReplicache();
 
   if (!rep) {
-    return <div>Loading...</div>
+    return <div>Loading...</div>;
   }
 
   return (
@@ -36,7 +36,7 @@ const HomePage = () => {
           <p className="mt-4 text-base leading-7 text-gray-600">
             This is a starter template for building realtime, offline-first
             applications. It&apos;s a minimal todo app that demonstrates how to
-            set up{' '}
+            set up{" "}
             <a
               href="https://replicache.dev/"
               target="_blank"
@@ -44,8 +44,8 @@ const HomePage = () => {
               className="text-blue-500 hover:underline"
             >
               Replicache
-            </a>{' '}
-            with{' '}
+            </a>{" "}
+            with{" "}
             <a
               href="https://edgedb.com/"
               target="_blank"
@@ -60,7 +60,7 @@ const HomePage = () => {
         <TodoList rep={rep} />
       </main>
     </div>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;

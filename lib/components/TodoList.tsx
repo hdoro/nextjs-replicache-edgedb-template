@@ -1,34 +1,34 @@
-import type { Todo } from '@/dbschema/interfaces'
-import React, { useRef, useState } from 'react'
-import { ReadTransaction, Replicache } from 'replicache'
-import { useSubscribe } from 'replicache-react'
-import { generate_replicache_id, REPLICACHE_ID_PREFIXES } from '../ids'
-import { M } from '../mutators.client'
-import { DeleteIcon } from './DeleteIcon'
+import type { Todo } from "@/dbschema/interfaces";
+import React, { useRef, useState } from "react";
+import { ReadTransaction, Replicache } from "replicache";
+import { useSubscribe } from "replicache-react";
+import { generate_replicache_id, REPLICACHE_ID_PREFIXES } from "../ids";
+import { M } from "../mutators.client";
+import { DeleteIcon } from "./DeleteIcon";
 
 export async function listTodos(tx: ReadTransaction) {
   return (await tx
     .scan({ prefix: REPLICACHE_ID_PREFIXES.todo })
     .values()
-    .toArray()) as unknown as Todo[]
+    .toArray()) as unknown as Todo[];
 }
 
 const TodoList = ({ rep }: { rep: Replicache<M> }) => {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const [newTask, setNewTask] = useState('')
+  const [newTask, setNewTask] = useState("");
 
   // Subscribe to all todos and sort them from newest to oldest
-  const todos = useSubscribe(rep, listTodos, { default: [] })
+  const todos = useSubscribe(rep, listTodos, { default: [] });
   todos.sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  )
+  );
 
   const handleNewItem = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!newTask) {
-      return
+      return;
     }
 
     rep.mutate.createTodo({
@@ -36,14 +36,14 @@ const TodoList = ({ rep }: { rep: Replicache<M> }) => {
       complete: false,
       replicache_id: generate_replicache_id(REPLICACHE_ID_PREFIXES.todo),
       created_at: new Date(),
-    })
-    setNewTask('')
-    inputRef.current?.focus()
-  }
+    });
+    setNewTask("");
+    inputRef.current?.focus();
+  };
 
   const handleDeleteTodo = (replicache_id: string) => {
-    void rep.mutate.deleteTodo({ replicache_id })
-  }
+    void rep.mutate.deleteTodo({ replicache_id });
+  };
 
   return (
     <div className="mx-auto max-w-md rounded-lg bg-white p-4 shadow-md">
@@ -85,8 +85,8 @@ const TodoList = ({ rep }: { rep: Replicache<M> }) => {
               />
               <input
                 type="text"
-                value={todo.content || ''}
-                className={`bg-transparent text-gray-800 ${todo.complete ? 'text-gray-400 line-through' : ''}`}
+                value={todo.content || ""}
+                className={`bg-transparent text-gray-800 ${todo.complete ? "text-gray-400 line-through" : ""}`}
                 onChange={(e) =>
                   rep.mutate.updateTodo({
                     replicache_id: todo.replicache_id,
@@ -105,7 +105,7 @@ const TodoList = ({ rep }: { rep: Replicache<M> }) => {
         ))}
       </ul>
     </div>
-  )
-}
+  );
+};
 
-export default TodoList
+export default TodoList;
