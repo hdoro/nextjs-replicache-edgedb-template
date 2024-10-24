@@ -1,4 +1,24 @@
 import e from '@/dbschema/edgeql'
+import { DEFAULT_LAST_MUTATION_ID } from './replicache.types'
+
+export const update_client_last_mutation = e.params(
+  {
+    client_group_id: e.str,
+    client_id: e.str,
+    last_mutation_id: e.int64,
+  },
+  (params) =>
+    e.update(e.ReplicacheClient, (c) => ({
+      filter_single: e.op(
+        e.op(c.client_id, '=', params.client_id),
+        'and',
+        e.op(c.client_group.client_group_id, '=', params.client_group_id),
+      ),
+      set: {
+        last_mutation_id: params.last_mutation_id,
+      },
+    })),
+)
 
 export const modify_clients_mutation = e.params(
   {
@@ -101,6 +121,21 @@ export const create_client_group_mutation = e.params(
   (params) =>
     e.insert(e.ReplicacheClientGroup, {
       client_group_id: params.client_group_id,
+    }),
+)
+
+export const create_client_mutation = e.params(
+  {
+    client_id: e.str,
+    client_group_id: e.str,
+  },
+  (params) =>
+    e.insert(e.ReplicacheClient, {
+      client_id: params.client_id,
+      client_group: e.select(e.ReplicacheClientGroup, (rg) => ({
+        filter_single: e.op(rg.client_group_id, '=', params.client_group_id),
+      })),
+      last_mutation_id: e.int64(DEFAULT_LAST_MUTATION_ID),
     }),
 )
 

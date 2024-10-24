@@ -33,6 +33,7 @@ export const BaseReplicacheMutation = z.object({
   timestamp: z.number(),
   id: z.number(),
 })
+export type BaseReplicacheMutation = z.infer<typeof BaseReplicacheMutation>
 
 export const CustomPushRequest = z.object({
   profileID: z.string(),

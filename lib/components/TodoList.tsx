@@ -1,5 +1,5 @@
 import type { Todo } from '@/dbschema/interfaces'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { ReadTransaction, Replicache } from 'replicache'
 import { useSubscribe } from 'replicache-react'
 import { generate_replicache_id, REPLICACHE_ID_PREFIXES } from '../ids'
@@ -14,6 +14,8 @@ export async function listTodos(tx: ReadTransaction) {
 }
 
 const TodoList = ({ rep }: { rep: Replicache<M> }) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const [newTask, setNewTask] = useState('')
 
   // Subscribe to all todos and sort them from newest to oldest
@@ -36,6 +38,7 @@ const TodoList = ({ rep }: { rep: Replicache<M> }) => {
       created_at: new Date(),
     })
     setNewTask('')
+    inputRef.current?.focus()
   }
 
   const handleDeleteTodo = (replicache_id: string) => {
@@ -47,6 +50,7 @@ const TodoList = ({ rep }: { rep: Replicache<M> }) => {
       <h1 className="mb-4 text-2xl font-bold">To-Do List</h1>
       <form className="mb-4" onSubmit={handleNewItem}>
         <input
+          ref={inputRef}
           type="text"
           placeholder="Add a new task"
           value={newTask}
